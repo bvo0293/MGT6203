@@ -1,0 +1,145 @@
+---
+title: "Forcasting Meal Sales"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+Install packages
+```{r}
+if (!require(dplyr)) install.packages("dplyr")
+library(dplyr)
+if (!require(forecast)) install.packages("forecast")
+library(forecast)
+if (!require(TTR)) install.packages("TTR")
+library(TTR)
+```
+Read in data
+```{r}
+df <- read.csv("meal_orders.csv")
+head(df)
+```
+Inspect Data
+```{r}
+length(unique(df$meal_id))
+length(unique(df$center_id))
+nrow(df)
+```
+This data set has 51 different meal options, 77 different distribution centers, and 456,548 total rows.
+
+
+Split Data into training and test data sets.  We will use the last 15 weeks as our test data.
+```{r}
+train <- filter(df, df$week <= 130)
+test <- filter(df, df$week > 130)
+```
+
+
+Imagine we work in center 13 and we are interested in forecasting the demand for meal 2290.
+
+```{r}
+## Filter for only meal id 2290 and center 13
+df_2 = filter(train, train$meal_id == 2290 & train$center_id == 13)
+nrow(df_2) #130 rows
+
+#Plot sales over time for center 13 and meal 2290
+plot(df_2$week, df_2$num_orders, type = 'l')
+
+## Convert to time-series
+df_ts = ts(df_2$num_orders)
+plot.ts(df_ts)
+
+## Create test filtered data
+test_2 = filter(test, test$meal_id == 2290 & test$center_id == 13)
+```
+Now we will compare different functions for time series forecasting:
+
+SES() - useful for data w/ no trend or seasonality
+```{r}
+# Create model. h is the number of periods to forecast
+meal_ses = ses(df_2$num_orders, h = 15)
+meal_ses$model
+
+# Plot model
+autoplot(meal_ses)
+
+# Find Accuracy scores for the model
+accuracy(meal_ses, test_2$num_orders)
+```
+Exponential Smoothing w/ Trend
+```{r}
+# Create model to predict next 15 weeks
+meal_holt = holt(df_2$num_orders, h= 15)
+meal_holt$model
+
+# Plot model
+autoplot(meal_holt)
+
+# Find Accuracy scores for the model
+accuracy(meal_holt, test_2$num_orders)
+```
+
+ETS - error, trend, smoothing
+```{r}
+# Create Model
+meal_ets = ets(df_2$num_orders)
+autoplot(forecast(meal_ets))
+summary(meal_ets)
+
+# Forecast out 15 weeks
+checkresiduals(meal_ets)
+meal_ets_fore = forecast(meal_ets, h=15)
+meal_ets_fore
+
+#Plot
+autoplot(meal_ets_fore)
+
+# Score
+accuracy(meal_ets_fore, test_2$num_orders)
+```
+
+SMA() - simple moving average
+```{r}
+# Create Model. n is the number of periods to average over
+meal_sma = SMA(df_2$num_orders, n=10)
+
+# Plot
+plot.ts(meal_sma)
+
+# Score
+accuracy(meal_sma, test_2$num_orders)
+```
+
+ARIMA:
+
+```{r}
+# Create model with differences
+meal_ar_diff = diff(df_2$num_orders, differences = 1)
+# Plot
+plot.ts(meal_ar_diff)
+
+# Create model with auto.arima()
+meal_auto = auto.arima(df_2$num_orders)
+meal_auto
+
+# Create arima model 0,0,2 from auto.arima optimizer
+meal_arima = arima(df_2$num_orders, order = c(0,0,2))
+meal_arima
+# Forecast out 15 weeks
+meal_arima_for = forecast(meal_arima, h=15)
+# Plot
+autoplot(meal_arima_for)
+
+# Score
+accuracy(meal_arima_for, test_2$num_orders)
+```
+We want to use the model that minimizes our test set error scores from accuracy. For instance, the model that minimizes RSME is ses(), simple exponential smoothing.
+Next, you can change around the filters for center id and meal id and see which models work best with which patterns of data.
+
+
+Additional Resources:
+Time series R package list: https://cran.r-project.org/web/views/TimeSeries.html
+Package in Python with various time-series models: statsmodels.tsa:  https://www.statsmodels.org/v0.10.0/tsa.html
+

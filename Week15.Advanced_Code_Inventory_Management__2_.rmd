@@ -1,0 +1,40 @@
+                           
+data=read.csv('meal_orders.csv', header=TRUE)
+head(data)
+				
+data2 = data %>%                                        
+   group_by(meal_id,category,cuisine,week) %>%                         
+   summarise_at(vars(num_orders),list(order_sum = sum)) %>%
+   group_by(meal_id) %>%
+   summarise_at(vars(order_sum), list(weekly_demand=mean)) %>%
+   mutate(annual_demand = weekly_demand * 52) %>%
+   arrange(desc(annual_demand))
+data2
+
+s = 500
+h = 1
+d = 3503833
+EOQ = sqrt(2*s*d/h)
+EOQ
+
+Q1 = EOQ
+Q2 = 80001
+Q3 = 120001
+TC1 = d/Q1*500 + Q1*h/2 + d*200
+TC2 = d/Q2*500 + Q2*h/2 + d*190
+TC3 = d/Q3*500 + Q3*h/2 + d*180
+TC1
+TC2
+TC3
+
+
+data3= data %>% 
+   filter(meal_id == 2290) %>%                                       
+   group_by(meal_id,week) %>%                         
+   summarise_at(vars(num_orders),              
+                list(order_sum = sum))
+
+ROP = mean(data3$order_sum)*3 + 1.28*sd(data3$order_sum)*sqrt(3)
+ROP
+
+				
